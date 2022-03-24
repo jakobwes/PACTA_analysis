@@ -32,13 +32,16 @@ devtools::load_all(quiet = TRUE)
 # copy-pasting them from your filesystem rather than trying to manually edit
 # bits of it. Seriously. Trust me.
 
-# Timestamps:
+# Timestamps and params:
 timestamps <- c("2019Q4", "2020Q4")
+data_location_timestamps <- c("../pacta-data/2019Q4/", "../pacta-data/2020Q4/")
+dataprep_timestamps <- c("2019Q4_transitionmonitor", "2020Q4_transitionmonitor")
+start_year_timestamps <- c(2020, 2021)
 
 # Data paths for portfolios timestamp t1 and t2
 data_paths <- c(
-  "../portfolios_lux", # r2dii.utils::path_dropbox_2dii("2° Investing Team/1. RESEARCH/1. Studies (projects)/PACTA . Regulator Monitoring/PACTA COP/03_Initiative_Level/04_PACTACOP_LU/04_Input_Cleaning"),
-  "../portfolios_lux"  # r2dii.utils::path_dropbox_2dii("2° Investing Team/1. RESEARCH/1. Studies (projects)/PACTA . Regulator Monitoring/PACTA COP/03_Initiative_Level/04_PACTACOP_LU/04_Input_Cleaning")
+  "../portfolios_lux_t1", # r2dii.utils::path_dropbox_2dii("2° Investing Team/1. RESEARCH/1. Studies (projects)/PACTA . Regulator Monitoring/PACTA COP/03_Initiative_Level/04_PACTACOP_LU/04_Input_Cleaning"),
+  "../portfolios_lux_t2"  # r2dii.utils::path_dropbox_2dii("2° Investing Team/1. RESEARCH/1. Studies (projects)/PACTA . Regulator Monitoring/PACTA COP/03_Initiative_Level/04_PACTACOP_LU/04_Input_Cleaning")
 )
 portfolios_paths <- file.path(data_paths, "portfolios")
 portfolios_meta_csvs <- file.path(data_paths, "portfolios.csv")
@@ -65,15 +68,18 @@ dir.create(project_prefix)
 users_meta_t1 <- read_csv(users_meta_csvs[1], col_types = "ncccccn", skip = 1L, col_names = c("id", "email_canonical", "organization_type", "organization_name", "job_title", "country", "has_portfolios"))
 users_meta_t2 <- read_csv(users_meta_csvs[2], col_types = "ncccccn", skip = 1L, col_names = c("id", "email_canonical", "organization_type", "organization_name", "job_title", "country", "has_portfolios"))
 users_meta_both_years <- users_meta_t2 %>% filter(id %in% users_meta_t1$id) # Take metainformation from t2, but filter to make sure that also attended t1
-
-write_csv(users_meta_both_years, file.path(project_prefix, "users_both_years.csv"))
-users_meta_csv <- file.path(project_prefix, "users_both_years.csv")
+users_meta_both_years <- users_meta_both_years %>% mutate(
+  path_fin_data_t1_abcd_t1 = NA,
+  path_fin_data_t1_abcd_t2 = NA,
+  path_fin_data_t2_abcd_t1 = NA,
+  path_fin_data_t2_abcd_t2 = NA
+)
 
 
 # Iterate through ---------------------------------------------------------
 
-
-for(fin_data_timestamp in 1:2){
+t_type <- c("t1", "t2")
+for(fin_data_timestamp in 1:2){#1:2
 
   data_path <- data_paths[fin_data_timestamp]
   portfolios_path <- portfolios_paths[fin_data_timestamp]
@@ -82,11 +88,22 @@ for(fin_data_timestamp in 1:2){
   stopifnot(dir.exists(portfolios_path))
   stopifnot(file.exists(portfolios_meta_csv))
 
-  for(abcd_timestamp in 1:2){
+  for(abcd_timestamp in 1:2){#1:2
 
     message(paste0("running financial data ", timestamps[fin_data_timestamp], " with abcd ", timestamps[abcd_timestamp], " through PACTA"))
 
     holdings_date <- timestamps[abcd_timestamp]
+
+    # Change parameters file with parameters for current abcd timestamp so that PACTA is run with correct abcd
+    params_file_path <- file.path("parameter_files", paste0("ProjectParameters_", project_code, ".yml"))
+
+    project_parameters <- yaml::read_yaml(params_file_path)
+    project_parameters$default$paths$data_location_ext <- data_location_timestamps[abcd_timestamp]
+    project_parameters$default$parameters$timestamp <- timestamps[abcd_timestamp]
+    project_parameters$default$parameters$dataprep_timestamp <- dataprep_timestamps[abcd_timestamp]
+    project_parameters$default$parameters$start_year <- start_year_timestamps[abcd_timestamp]
+    yaml::write_yaml(project_parameters, params_file_path)
+    rm(project_parameters)
 
     # check paths and directories --------------------------------------------------
     output_dir <- file.path(project_prefix, paste0("fin_data_", timestamps[fin_data_timestamp]), paste0("abcd_", timestamps[abcd_timestamp]))  # this will likely not work on Windows, so change it!
@@ -98,7 +115,6 @@ for(fin_data_timestamp in 1:2){
     dir.create(file.path(combined_user_results_output_dir, "40_Results"), showWarnings = FALSE)
 
     stopifnot(dir.exists(output_dir))
-    stopifnot(file.exists(users_meta_csv))
     stopifnot(dir.exists(file.path(combined_user_results_output_dir, "30_Processed_inputs")))
     stopifnot(dir.exists(file.path(combined_user_results_output_dir, "40_Results")))
 
@@ -115,10 +131,9 @@ for(fin_data_timestamp in 1:2){
     portfolio_csvs <- list.files(portfolios_path, pattern = "[.]csv$", full.names = TRUE)
 
 
-    # read in meta data CSVs -------------------------------------------------------
+    # read in portfolio meta data CSVs -------------------------------------------------------
 
     portfolios_meta <- read_csv(portfolios_meta_csv, col_types = "nnnccnc")
-    users_meta <- read_csv(users_meta_csv, col_types = "ncccccn", skip = 1L, col_names = c("id", "email_canonical", "organization_type", "organization_name", "job_title", "country", "has_portfolios"))
 
 
     # remove unsubmitted CSVs ------------------------------------------------------
@@ -149,7 +164,7 @@ for(fin_data_timestamp in 1:2){
       data %>%
       mutate(port_id = suppressWarnings(as.numeric(tools::file_path_sans_ext(basename(csv_name))))) %>%
       left_join(portfolios_meta[, c("id", "user_id")], by = c(port_id = "id")) %>%
-      left_join(users_meta[, c("id", "organization_type")], by = c(user_id = "id"))
+      left_join(users_meta_both_years[, c("id", "organization_type")], by = c(user_id = "id"))
 
     data <-
       data %>%
@@ -261,6 +276,13 @@ for(fin_data_timestamp in 1:2){
 
       user_id_output_dir <- file.path(users_output_dir, paste0(project_prefix, "_user_", user_id))
 
+      # Save in user-df where the results were saved
+      results_calculated <- paste0("fin_data_", t_type[fin_data_timestamp], "_abcd_", t_type[abcd_timestamp])
+      users_meta_both_years <- users_meta_both_years %>%
+        mutate(
+          !!as.symbol(paste0("path_", results_calculated)) := replace(!!as.symbol(paste0("path_", results_calculated)), id == user_id, user_id_output_dir)
+        )
+
       dir_delete("working_dir")
       dir_copy(user_id_output_dir, "working_dir", overwrite = TRUE)
 
@@ -271,72 +293,84 @@ for(fin_data_timestamp in 1:2){
 
       dir_delete(user_id_output_dir)
       dir_copy("working_dir", user_id_output_dir, overwrite = TRUE)
+
     }
 
 
-    # combine all user level results -----------------------------------------------
+    # # combine all user level results -----------------------------------------------
+    #
+    # data_filenames <-
+    #   c(
+    #     "Bonds_results_portfolio.rda",
+    #     "Bonds_results_company.rda",
+    #     "Bonds_results_map.rda",
+    #     "Equity_results_portfolio.rda",
+    #     "Equity_results_company.rda",
+    #     "Equity_results_map.rda"
+    #   )
+    #
+    # lapply(data_filenames, function(data_filename) {
+    #   portfolio_result_filepaths <- list.files(users_output_dir, pattern = data_filename, recursive = TRUE, full.names = TRUE)
+    #   meta_result_filepaths <- list.files(meta_output_dir, pattern = data_filename, recursive = TRUE, full.names = TRUE)
+    #   all_result_filepaths <- c(portfolio_result_filepaths, meta_result_filepaths)
+    #   all_result_filepaths <- all_result_filepaths <- setNames(
+    #     all_result_filepaths,
+    #     c(
+    #       sub(paste0("^", project_prefix, "_user_"), "", basename(dirname(portfolio_result_filepaths))),
+    #       "Meta Portfolio"
+    #     )
+    #   )
+    #
+    #   all_results <-
+    #     map_df(all_result_filepaths, readRDS, .id = "user_id") %>%
+    #     mutate(portfolio_name = user_id) %>%
+    #     left_join(mutate(users_meta_both_years, id = as.character(id)) %>% select(user_id = id, organization_type), by = "user_id") %>%
+    #     rename(peergroup = organization_type) %>%
+    #     mutate(investor_name = if_else(portfolio_name == "Meta Portfolio", "Meta Investor", peergroup)) %>%
+    #     select(-peergroup, -user_id)
+    #
+    #   saveRDS(all_results, file.path(combined_user_results_output_dir, "40_Results", data_filename))
+    # })
+    #
+    # data_filenames <-
+    #   c(
+    #     "overview_portfolio.rda",
+    #     "total_portfolio.rda",
+    #     "emissions.rda"
+    #   )
+    #
+    # lapply(data_filenames, function(data_filename) {
+    #   portfolio_result_filepaths <- list.files(users_output_dir, pattern = data_filename, recursive = TRUE, full.names = TRUE)
+    #   meta_result_filepaths <- list.files(meta_output_dir, pattern = data_filename, recursive = TRUE, full.names = TRUE)
+    #   all_result_filepaths <- c(portfolio_result_filepaths, meta_result_filepaths)
+    #   all_result_filepaths <- all_result_filepaths <- setNames(
+    #     all_result_filepaths,
+    #     c(
+    #       sub(paste0("^", project_prefix, "_user_"), "", basename(dirname(portfolio_result_filepaths))),
+    #       "Meta Portfolio"
+    #     )
+    #   )
+    #
+    #   all_results <-
+    #     map_df(all_result_filepaths, readRDS, .id = "user_id") %>%
+    #     mutate(portfolio_name = user_id) %>%
+    #     left_join(mutate(users_meta_both_years, id = as.character(id)) %>% select(user_id = id, organization_type), by = "user_id") %>%
+    #     rename(peergroup = organization_type) %>%
+    #     mutate(investor_name = if_else(portfolio_name == "Meta Portfolio", "Meta Investor", peergroup)) %>%
+    #     select(-c(peergroup, user_id))
+    #
+    #   saveRDS(all_results, file.path(combined_user_results_output_dir, "30_Processed_inputs", data_filename))
+    # })
 
-    data_filenames <-
-      c(
-        "Bonds_results_portfolio.rda",
-        "Bonds_results_company.rda",
-        "Bonds_results_map.rda",
-        "Equity_results_portfolio.rda",
-        "Equity_results_company.rda",
-        "Equity_results_map.rda"
-      )
-
-    lapply(data_filenames, function(data_filename) {
-      portfolio_result_filepaths <- list.files(users_output_dir, pattern = data_filename, recursive = TRUE, full.names = TRUE)
-      meta_result_filepaths <- list.files(meta_output_dir, pattern = data_filename, recursive = TRUE, full.names = TRUE)
-      all_result_filepaths <- c(portfolio_result_filepaths, meta_result_filepaths)
-      all_result_filepaths <- all_result_filepaths <- setNames(
-        all_result_filepaths,
-        c(
-          sub(paste0("^", project_prefix, "_user_"), "", basename(dirname(portfolio_result_filepaths))),
-          "Meta Portfolio"
-        )
-      )
-
-      all_results <-
-        map_df(all_result_filepaths, readRDS, .id = "user_id") %>%
-        mutate(portfolio_name = user_id) %>%
-        left_join(mutate(users_meta, id = as.character(id)) %>% select(user_id = id, organization_type), by = "user_id") %>%
-        rename(peergroup = organization_type) %>%
-        mutate(investor_name = if_else(portfolio_name == "Meta Portfolio", "Meta Investor", peergroup)) %>%
-        select(-peergroup, -user_id)
-
-      saveRDS(all_results, file.path(combined_user_results_output_dir, "40_Results", data_filename))
-    })
-
-    data_filenames <-
-      c(
-        "overview_portfolio.rda",
-        "total_portfolio.rda",
-        "emissions.rda"
-      )
-
-    lapply(data_filenames, function(data_filename) {
-      portfolio_result_filepaths <- list.files(users_output_dir, pattern = data_filename, recursive = TRUE, full.names = TRUE)
-      meta_result_filepaths <- list.files(meta_output_dir, pattern = data_filename, recursive = TRUE, full.names = TRUE)
-      all_result_filepaths <- c(portfolio_result_filepaths, meta_result_filepaths)
-      all_result_filepaths <- all_result_filepaths <- setNames(
-        all_result_filepaths,
-        c(
-          sub(paste0("^", project_prefix, "_user_"), "", basename(dirname(portfolio_result_filepaths))),
-          "Meta Portfolio"
-        )
-      )
-
-      all_results <-
-        map_df(all_result_filepaths, readRDS, .id = "user_id") %>%
-        mutate(portfolio_name = user_id) %>%
-        left_join(mutate(users_meta, id = as.character(id)) %>% select(user_id = id, organization_type), by = "user_id") %>%
-        rename(peergroup = organization_type) %>%
-        mutate(investor_name = if_else(portfolio_name == "Meta Portfolio", "Meta Investor", peergroup)) %>%
-        select(-c(peergroup, user_id))
-
-      saveRDS(all_results, file.path(combined_user_results_output_dir, "30_Processed_inputs", data_filename))
-    })
+    # Write to file at the end of each iteration
+    write_csv(users_meta_both_years, file.path(project_prefix, "users_meta_both_years.csv"))
   }
 }
+
+# Filter the users that participated in both years but where for whatever reason one of the portfolio-combinations is not given (ie. they did not submit their portfolio in one of the years)
+# users_meta_both_years <- users_meta_both_years %>% filter(
+#   !is.na(path_fin_data_t1_abcd_t1),
+#   !is.na(path_fin_data_t1_abcd_t2),
+#   !is.na(path_fin_data_t2_abcd_t1),
+#   !is.na(path_fin_data_t2_abcd_t2)
+# )
