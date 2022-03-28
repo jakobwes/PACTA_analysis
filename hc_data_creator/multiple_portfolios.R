@@ -121,7 +121,7 @@ for(fin_data_timestamp in 1:2){#1:2
 
     # load needed function and set needed values
 
-    source("meta_report_data_creator/read_portfolio_csv.R")
+    source("hc_data_creator/read_portfolio_csv.R")
 
     pacta_directories <- c("00_Log_Files", "10_Parameter_File", "20_Raw_Inputs", "30_Processed_Inputs", "40_Results", "50_Outputs")
 
