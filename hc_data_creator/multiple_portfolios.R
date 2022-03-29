@@ -70,10 +70,8 @@ users_meta_t1 <- read_csv(users_meta_csvs[1], col_types = "ncccccn", skip = 1L, 
 users_meta_t2 <- read_csv(users_meta_csvs[2], col_types = "ncccccn", skip = 1L, col_names = c("id", "email_canonical", "organization_type", "organization_name", "job_title", "country", "has_portfolios"))
 users_meta_both_years <- users_meta_t2 %>% filter(id %in% users_meta_t1$id) # Take metainformation from t2, but filter to make sure that also attended t1
 users_meta_both_years <- users_meta_both_years %>% mutate(
-  path_fin_data_t1_abcd_t1 = NA,
-  path_fin_data_t1_abcd_t2 = NA,
-  path_fin_data_t2_abcd_t1 = NA,
-  path_fin_data_t2_abcd_t2 = NA
+  path_fin_data_t1 = NA,
+  path_fin_data_t2 = NA
 )
 
 
@@ -91,10 +89,6 @@ for(fin_data_timestamp in 1:2){#1:2
 
 
   message(paste0("running financial data ", timestamps[fin_data_timestamp]," through PACTA"))
-
-  # Change parameters file with parameters for current abcd timestamp so that PACTA is run with correct abcd
-  change_project_params(project_code, data_location_timestamps[fin_data_timestamp], timestamps[fin_data_timestamp], dataprep_timestamps[fin_data_timestamp], start_year_timestamps[fin_data_timestamp])
-
 
   # check paths and directories --------------------------------------------------
   output_dir <- file.path(project_prefix, paste0("fin_data_", timestamps[fin_data_timestamp]))  # this will likely not work on Windows, so change it!
@@ -207,7 +201,6 @@ for(fin_data_timestamp in 1:2){#1:2
 
   message(paste0("running meta portfolio through PACTA financial data t", fin_data_timestamp))
 
-  change_project_params(project_code, data_location_timestamps[fin_data_timestamp], timestamps[fin_data_timestamp], dataprep_timestamps[fin_data_timestamp], start_year_timestamps[fin_data_timestamp])
   dir_delete("working_dir")
   dir_copy(meta_output_dir, "working_dir", overwrite = TRUE)
 
@@ -224,12 +217,14 @@ for(fin_data_timestamp in 1:2){#1:2
 
   # abcd_timestamp = fin_data_timestamp
   abcd_timestamp <- fin_data_timestamp
+  change_project_params(project_code, data_location_timestamps[abcd_timestamp], timestamps[abcd_timestamp], dataprep_timestamps[abcd_timestamp], start_year_timestamps[abcd_timestamp])
   source("web_tool_script_2.R", local = TRUE)
   dir.create(file.path(meta_output_dir, "40_Results", paste0("abcd_", timestamps[abcd_timestamp])))
   dir_copy(file.path("working_dir", "40_Results", portfolio_name_ref_all), file.path(meta_output_dir, "40_Results", paste0("abcd_", timestamps[abcd_timestamp])), overwrite = TRUE)
 
   # abcd_timestamp = get_asymmetric_combination(fin_data_timestamp)
   abcd_timestamp <- get_asymmetric_combination(fin_data_timestamp)
+  change_project_params(project_code, data_location_timestamps[abcd_timestamp], timestamps[abcd_timestamp], dataprep_timestamps[abcd_timestamp], start_year_timestamps[abcd_timestamp])
   source("web_tool_script_2.R", local = TRUE)
   dir.create(file.path(meta_output_dir, "40_Results", paste0("abcd_", timestamps[abcd_timestamp])))
   dir_copy(file.path("working_dir", "40_Results", portfolio_name_ref_all), file.path(meta_output_dir, "40_Results", paste0("abcd_", timestamps[abcd_timestamp])), overwrite = TRUE)
@@ -243,7 +238,7 @@ for(fin_data_timestamp in 1:2){#1:2
     user_id_output_dir <- file.path(users_output_dir, paste0(project_prefix, "_user_", user_id))
 
     # Save in user-df where the results were saved
-    results_calculated <- paste0("fin_data_", t_type[fin_data_timestamp], "_abcd_", t_type[abcd_timestamp])
+    results_calculated <- paste0("fin_data_", t_type[fin_data_timestamp])
     users_meta_both_years <- users_meta_both_years %>%
       mutate(
         !!as.symbol(paste0("path_", results_calculated)) := replace(!!as.symbol(paste0("path_", results_calculated)), id == user_id, user_id_output_dir)
@@ -265,12 +260,14 @@ for(fin_data_timestamp in 1:2){#1:2
 
     # abcd_timestamp = fin_data_timestamp
     abcd_timestamp <- fin_data_timestamp
+    change_project_params(project_code, data_location_timestamps[abcd_timestamp], timestamps[abcd_timestamp], dataprep_timestamps[abcd_timestamp], start_year_timestamps[abcd_timestamp])
     source("web_tool_script_2.R", local = TRUE)
     dir.create(file.path(user_id_output_dir, "40_Results", paste0("abcd_", timestamps[abcd_timestamp])))
     dir_copy(file.path("working_dir", "40_Results", portfolio_name_ref_all), file.path(user_id_output_dir, "40_Results", paste0("abcd_", timestamps[abcd_timestamp])), overwrite = TRUE)
 
     # abcd_timestamp = fin_data_timestamp
     abcd_timestamp <- get_asymmetric_combination(fin_data_timestamp)
+    change_project_params(project_code, data_location_timestamps[abcd_timestamp], timestamps[abcd_timestamp], dataprep_timestamps[abcd_timestamp], start_year_timestamps[abcd_timestamp])
     source("web_tool_script_2.R", local = TRUE)
     dir.create(file.path(user_id_output_dir, "40_Results", paste0("abcd_", timestamps[abcd_timestamp])))
     dir_copy(file.path("working_dir", "40_Results", portfolio_name_ref_all), file.path(user_id_output_dir, "40_Results", paste0("abcd_", timestamps[abcd_timestamp])), overwrite = TRUE)
