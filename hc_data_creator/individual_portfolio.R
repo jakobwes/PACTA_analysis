@@ -16,6 +16,7 @@ library(fs)
 library(r2dii.utils)  # must install with # devtools::install_github("2DegreesInvesting/r2dii.utils")
 library(readr)
 library(yaml)
+source("hc_data_creator/0_helpers.R")
 
 devtools::load_all(quiet = TRUE)
 
@@ -48,46 +49,7 @@ given_portfolio_name <- "test"
 output_dir <- file.path("output", given_portfolio_name)
 
 
-# Change parameters file with parameters for current abcd timestamp so that PACTA is run with correct abcd
-change_project_params <- function(project_code, data_location_timestamp, timestamp, dataprep_timestamp, start_year_timestamp){
-  params_file_path <- file.path("parameter_files", paste0("ProjectParameters_", project_code, ".yml"))
-
-  project_parameters <- yaml::read_yaml(params_file_path)
-  project_parameters$default$paths$data_location_ext <- data_location_timestamp
-  project_parameters$default$parameters$timestamp <- timestamp
-  project_parameters$default$parameters$dataprep_timestamp <- dataprep_timestamp
-  project_parameters$default$parameters$start_year <- start_year_timestamp
-  yaml::write_yaml(project_parameters, params_file_path)
-}
-
-# Write portfolio_csv
-write_portfolio_csv <- function(portfolio, output_dir){
-  portfolio %>%
-    select(given_investor_name, given_portfolio_name, isin, market_value, currency) %>%
-    group_by_all() %>% ungroup(market_value) %>%
-    summarise(market_value = sum(market_value, na.rm = TRUE), .groups = "drop") %>%
-    write_csv(file = file.path(output_dir, "20_Raw_Inputs", paste0(given_portfolio_name, "_user_", given_investor_name, ".csv")))
-
-}
-
-# Write  config_file
-write_config_file <- function(output_dir, holdings_date){
-  config_list <-
-    list(
-      default = list(
-        parameters = list(
-          portfolio_name = given_investor_name,
-          investor_name = given_portfolio_name,
-          peer_group = paste0(given_portfolio_name, "_meta"),
-          language = default_language,
-          project_code = project_code,
-          holdings_date = holdings_date
-        )
-      )
-    )
-  write_yaml(config_list, file = file.path(output_dir, "10_Parameter_File", paste0(given_portfolio_name, "_user_", given_investor_name, "_PortfolioParameters.yml")))
-
-}
+# Main code ---------------------------------------------------------------
 
 # write and check paths and directories calculations ------------------------------------------------------
 
@@ -108,8 +70,8 @@ stopifnot(dir.exists(output_dir_fin_data_t2))
 # load needed function and set needed values
 source("hc_data_creator/read_portfolio_csv.R")
 
-portfolio_t1 <- read_portfolio_csv(portfolio_path_t1) %>% mutate(given_investor_name = given_investor_name, given_portfolio_name = given_portfolio_name)
-portfolio_t2 <- read_portfolio_csv(portfolio_path_t2) %>% mutate(given_investor_name = given_investor_name, given_portfolio_name = given_portfolio_name)
+portfolio_t1 <- read_portfolio_csv(portfolio_path_t1) %>% mutate(investor_name = given_investor_name, portfolio_name = given_portfolio_name)
+portfolio_t2 <- read_portfolio_csv(portfolio_path_t2) %>% mutate(investor_name = given_investor_name, portfolio_name = given_portfolio_name)
 
 
 # prepare PACTA project ---------------------------------------------------
@@ -118,11 +80,11 @@ pacta_directories <- c("00_Log_Files", "10_Parameter_File", "20_Raw_Inputs", "30
 dir_create(file.path(output_dir_fin_data_t1, pacta_directories))
 dir_create(file.path(output_dir_fin_data_t2, pacta_directories))
 
-write_portfolio_csv(portfolio_t1, output_dir_fin_data_t1)
-write_config_file(output_dir_fin_data_t1, timestamps[1])
+write_portfolio_csv(portfolio_t1, output_dir_fin_data_t1, portfolio_name_ref_all = paste0(given_portfolio_name, "_user_", given_investor_name))
+write_config_file(output_dir_fin_data_t1, timestamps[1], given_investor_name, given_portfolio_name)
 
-write_portfolio_csv(portfolio_t2, output_dir_fin_data_t2)
-write_config_file(output_dir_fin_data_t2, timestamps[2])
+write_portfolio_csv(portfolio_t2, output_dir_fin_data_t2, portfolio_name_ref_all = paste0(given_portfolio_name, "_user_", given_investor_name))
+write_config_file(output_dir_fin_data_t2, timestamps[2], given_investor_name, given_portfolio_name)
 
 
 # fin_data t1: run portfolio through PACTA ---------------------------------------------
