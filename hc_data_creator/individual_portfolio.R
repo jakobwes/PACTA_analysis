@@ -37,14 +37,14 @@ dataprep_timestamps <- c("2019Q4_transitionmonitor", "2020Q4_transitionmonitor")
 start_year_timestamps <- c(2020, 2021)
 
 # Data paths for portfolios timestamp t1 and t2
-portfolio_path_t1 <- "../portfolios_lux_t1/portfolios/29740.csv"
-portfolio_path_t2 <- "../portfolios_lux_t2/portfolios/29740.csv"
+portfolio_path_t1 <- "../testportfolio_swiss/portfolio_t1.csv" #"../portfolios_lux_t1/test/29740.csv"
+portfolio_path_t2 <- "../testportfolio_swiss/portfolio_t2.csv" #"../portfolios_lux_t2/test/29740.csv"
 
 # Meta
 project_code <- "PA2021LU"
 default_language <- "EN"
-given_investor_name <- "test"
-given_portfolio_name <- "test"
+given_investor_name <- "demo_portfolio"
+given_portfolio_name <- "demo_portfolio"
 
 output_dir <- file.path("output", given_portfolio_name)
 
@@ -103,18 +103,18 @@ portfolio_name <- given_portfolio_name
 source("web_tool_script_1.R", local = TRUE)
 dir_copy(file.path("working_dir", "10_Parameter_File"), file.path(output_dir_fin_data_t1, "10_Parameter_File"), overwrite = TRUE)
 dir_copy(file.path("working_dir", "20_Raw_Inputs"), file.path(output_dir_fin_data_t1, "20_Raw_Inputs"), overwrite = TRUE)
-dir_copy(file.path("working_dir", "30_Processed_Inputs"), file.path(output_dir_fin_data_t1, "30_Processed_Inputs"), overwrite = TRUE)
+dir_copy(file.path("working_dir", "30_Processed_Inputs", portfolio_name_ref_all), file.path(output_dir_fin_data_t1, "30_Processed_Inputs"), overwrite = TRUE)
 
 # abcd t1
 source("web_tool_script_2.R", local = TRUE)
 dir.create(file.path(output_dir_fin_data_t1, "40_Results", paste0("abcd_", timestamps[1])))
-dir_copy("working_dir/40_Results", file.path(output_dir_fin_data_t1, "40_Results", paste0("abcd_", timestamps[1])), overwrite = TRUE)
+dir_copy(file.path("working_dir", "40_Results", portfolio_name_ref_all), file.path(output_dir_fin_data_t1, "40_Results", paste0("abcd_", timestamps[1])), overwrite = TRUE)
 
 # abcd t2
 change_project_params(project_code, data_location_timestamps[2], timestamps[2], dataprep_timestamps[2], start_year_timestamps[2]) # This is here, because the rollup giving 30_Processed_Outputs needs to happen with t1 financial data. Otherwise new investments by funds will be missing if done with t2 financial data
 source("web_tool_script_2.R", local = TRUE)
 dir.create(file.path(output_dir_fin_data_t1, "40_Results", paste0("abcd_", timestamps[2])))
-dir_copy("working_dir/40_Results", file.path(output_dir_fin_data_t1, "40_Results", paste0("abcd_", timestamps[2])), overwrite = TRUE)
+dir_copy(file.path("working_dir", "40_Results", portfolio_name_ref_all), file.path(output_dir_fin_data_t1, "40_Results", paste0("abcd_", timestamps[2])), overwrite = TRUE)
 
 
 # fin_data t2: run portfolio through PACTA ---------------------------------------------
@@ -133,16 +133,16 @@ portfolio_name <- given_portfolio_name
 source("web_tool_script_1.R", local = TRUE)
 dir_copy(file.path("working_dir", "10_Parameter_File"), output_dir_fin_data_t2, overwrite = TRUE)
 dir_copy(file.path("working_dir", "20_Raw_Inputs"), output_dir_fin_data_t2, overwrite = TRUE)
-dir_copy(file.path("working_dir", "30_Processed_Inputs"), output_dir_fin_data_t2, overwrite = TRUE)
+dir_copy(file.path("working_dir", "30_Processed_Inputs", portfolio_name_ref_all), file.path(output_dir_fin_data_t2, "30_Processed_Inputs"), overwrite = TRUE)
 
 # abcd t2
 source("web_tool_script_2.R", local = TRUE)
 dir.create(file.path(output_dir_fin_data_t2, "40_Results", paste0("abcd_", timestamps[2])))
-dir_copy("working_dir/40_Results", file.path(output_dir_fin_data_t2, "40_Results", paste0("abcd_", timestamps[2])), overwrite = TRUE)
+dir_copy(file.path("working_dir", "40_Results", portfolio_name_ref_all), file.path(output_dir_fin_data_t2, "40_Results", paste0("abcd_", timestamps[2])), overwrite = TRUE)
 
 # abcd t1
 change_project_params(project_code, data_location_timestamps[1], timestamps[1], dataprep_timestamps[1], start_year_timestamps[1])# This is here, because the rollup giving 30_Processed_Outputs needs to happen with t2 financial data. Otherwise divestments by funds will be missing if done with t1 financial data
 source("web_tool_script_2.R", local = TRUE)
 dir.create(file.path(output_dir_fin_data_t2, "40_Results", paste0("abcd_", timestamps[1])))
-dir_copy("working_dir/40_Results", file.path(output_dir_fin_data_t2, "40_Results", paste0("abcd_", timestamps[1])), overwrite = TRUE)
+dir_copy(file.path("working_dir", "40_Results", portfolio_name_ref_all), file.path(output_dir_fin_data_t2, "40_Results", paste0("abcd_", timestamps[1])), overwrite = TRUE)
 
